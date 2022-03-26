@@ -1,9 +1,3 @@
-Example Twitch Authentication process for OAuth client credientials flow from a server app, plus a simple API request example.
+Twitch Raid Checker App
 
-Clone from git, then run npm install.
-
-Register your twitch app on the twitch developer site: https://dev.twitch.tv/console/apps/create
-
-Create a .env file from the example and add the client id and secret.
-
-Run with: npm run start
+- Shows you a list of twitch users who follow you, who are currently live, sorted by viewer count AKA potential raiders!

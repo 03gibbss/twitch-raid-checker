@@ -1,0 +1,15 @@
+{
+  "name": "twitch-server-app-auth-sample",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "Sam Gibbs",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.26.1",
+    "dotenv": "^16.0.0"
+  }
+}

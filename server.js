@@ -1,136 +1,93 @@
 require("dotenv").config();
-const axios = require("axios");
+const express = require("express");
 
-const twitchAPI = axios.create({
-  baseURL: "https://api.twitch.tv/helix/",
-  method: "GET",
-  headers: {
-    "Client-Id": process.env.TWITCH_CLIENT_ID,
-  },
+const {
+  authenticateWithTwitch,
+  getUserDataByLogin,
+  getUserFollowerIdsById,
+  getAllLiveFollowers,
+} = require("./libs/twitchAPI");
+
+const app = express();
+
+app.use(express.json());
+
+const PORT = process.env.PORT || 3001;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port: ${PORT}`);
 });
 
-const init = async () => {
+// @desc Get user data by login
+// @route GET /api/v1/get-user-data-by-login
+// @acess Public
+app.get("/api/v1/get-user-data-by-login/:login", async (req, res) => {
   try {
-    const accessToken = await getAccessToken();
+    await authenticateWithTwitch();
 
-    twitchAPI.defaults.headers.common[
-      "Authorization"
-    ] = `Bearer ${accessToken}`;
+    const { login } = req.params;
 
-    // login could be passed from front end etc
-    const id = await getUserIdByLogin("03gibbss");
+    const userData = await getUserDataByLogin(login);
 
-    const followerIds = await getUserFollowerIdsById(id);
-
-    let allLiveFollowers = await getAllLiveFollowers(followerIds);
-
-    allLiveFollowers.sort((a, b) => b.viewer_count - a.viewer_count);
-
-    console.log(
-      allLiveFollowers.map((follower) => {
-        return { name: follower.user_name, viewers: follower.viewer_count };
-      })
-    );
-    console.log(allLiveFollowers.length);
+    res.status(200).json({
+      success: true,
+      data: userData,
+    });
   } catch (err) {
-    console.error(err);
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      error: "Server error",
+    });
   }
-};
+});
 
-const getAccessToken = () => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const {
-        data: { access_token: accessToken },
-      } = await axios({
-        method: "POST",
-        url: "https://id.twitch.tv/oauth2/token",
-        data: {
-          client_id: process.env.TWITCH_CLIENT_ID,
-          client_secret: process.env.TWITCH_CLIENT_SECRET,
-          grant_type: "client_credentials",
-        },
-      });
+// @desc Get user followers by id
+// @route GET /api/v1/get-user-followers-by-id
+// @acess Public
+app.get("/api/v1/get-user-followers-by-id/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) throw "User ID not found";
 
-      resolve(accessToken);
-    } catch (err) {
-      reject(err);
-    }
-  });
-};
+    await authenticateWithTwitch();
 
-const getUserIdByLogin = (login) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const {
-        data: {
-          data: [{ id } = ""],
-        },
-      } = await twitchAPI(`/users?login=${login}`);
+    const followerIds = await getUserFollowerIdsById(userId);
 
-      if (!id) reject("User not found");
+    res.status(200).json({
+      success: true,
+      data: followerIds,
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      error: "Server error",
+    });
+  }
+});
 
-      resolve(id);
-    } catch (err) {
-      reject(err);
-    }
-  });
-};
+// @desc Get live followers by follower id araray
+// @route POST /api/v1/get-all-live-followers
+// @acess Public
+app.post("/api/v1/get-all-live-followers/", async (req, res) => {
+  try {
+    const { allFollowerIds } = req.body;
+    if (!allFollowerIds) throw "Follower IDs not found";
 
-const getUserFollowerIdsById = (id) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      let after = "";
-      let followerIds = [];
+    await authenticateWithTwitch();
 
-      do {
-        const {
-          data: {
-            data,
-            pagination: { cursor },
-          },
-        } = await twitchAPI(
-          `/users/follows?to_id=${id}&first=100&after=${after}`
-        );
+    const allLiveFollowers = await getAllLiveFollowers(allFollowerIds);
 
-        followerIds = [
-          ...followerIds,
-          ...data.map((follower) => follower.from_id),
-        ];
-
-        after = cursor;
-      } while (after !== undefined);
-
-      resolve(followerIds);
-    } catch (err) {
-      reject(err);
-    }
-  });
-};
-
-const getAllLiveFollowers = (followerIds) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      let liveFollowers = [];
-
-      do {
-        let ids = followerIds
-          .splice(0, 100)
-          .map((id) => `user_id=${id}`)
-          .join("&");
-
-        const {
-          data: { data },
-        } = await twitchAPI(`/streams?${ids}?`);
-
-        if (data.length) liveFollowers = [...liveFollowers, ...data];
-      } while (followerIds.length > 0);
-
-      resolve(liveFollowers);
-    } catch (err) {
-      reject(err);
-    }
-  });
-};
-
-init();
+    res.status(200).json({
+      success: true,
+      data: allLiveFollowers,
+    });
+  } catch (err) {
+    // console.log(err);
+    res.status(500).json({
+      success: false,
+      error: "Server error",
+    });
+  }
+});

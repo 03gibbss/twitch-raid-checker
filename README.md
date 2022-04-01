@@ -1,4 +1,4 @@
-Twitch Raid Checker App
+Twitch Raid Checker App Backend
 
 Backend for https://github.com/03gibbss/twitch-raid-checker-react
 

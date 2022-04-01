@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const cors = require("cors");
 
 const TwitchAPI = require("./libs/twitchAPI");
 
@@ -8,6 +9,7 @@ const twitchAPI = new TwitchAPI();
 const app = express();
 
 app.use(express.json());
+app.use(cors());
 
 const PORT = process.env.PORT || 3001;
 
@@ -20,18 +22,21 @@ const PORT = process.env.PORT || 3001;
     });
 
     // @desc Get user data by login
-    // @route GET /api/v1/get-user-data-by-login
+    // @route GET /api/v1/users?login=login
     // @acess Public
-    app.get("/api/v1/get-user-data-by-login/:login", async (req, res) => {
+    app.get("/api/v1/users", async (req, res) => {
       try {
-        const { login } = req.params;
+        const { login, id } = req.query;
 
-        const userData = await twitchAPI.getUserDataByLogin(login);
-
-        res.status(200).json({
-          success: true,
-          data: userData,
-        });
+        if (login) {
+          const data = await twitchAPI.getUserDataByLogin(login);
+          res.status(200).json(data);
+        } else if (id) {
+          const data = await twitchAPI.getUserDataById(id);
+          res.status(200).json(data);
+        } else {
+          throw "No login or id provided";
+        }
       } catch (err) {
         console.log(err);
         res.status(500).json({
@@ -42,19 +47,21 @@ const PORT = process.env.PORT || 3001;
     });
 
     // @desc Get user followers by id
-    // @route GET /api/v1/get-user-followers-by-id
+    // @route GET /api/v1/users/follows?to_id=id&first=100&after=after
     // @acess Public
-    app.get("/api/v1/get-user-followers-by-id/:userId", async (req, res) => {
+    app.get("/api/v1/users/follows", async (req, res) => {
       try {
-        const { userId } = req.params;
-        if (!userId) throw "User ID not found";
+        const { to_id, first, after } = req.query;
 
-        const followerIds = await twitchAPI.getUserFollowerIdsById(userId);
+        if (!to_id) throw "User ID not found";
 
-        res.status(200).json({
-          success: true,
-          data: followerIds,
-        });
+        const data = await twitchAPI.getUserFollowerIdsById(
+          to_id,
+          first,
+          after
+        );
+
+        res.status(200).json(data);
       } catch (err) {
         console.log(err);
         res.status(500).json({
@@ -64,22 +71,18 @@ const PORT = process.env.PORT || 3001;
       }
     });
 
-    // @desc Get live followers by follower id araray
-    // @route POST /api/v1/get-all-live-followers
+    // @desc Get stream data by ids
+    // @route GET /api/v1/streams?ids=ids
     // @acess Public
-    app.post("/api/v1/get-all-live-followers/", async (req, res) => {
+    app.get("/api/v1/streams", async (req, res) => {
       try {
-        const { allFollowerIds } = req.body;
-        if (!allFollowerIds) throw "Follower IDs not found";
+        const { user_id } = req.query;
 
-        const allLiveFollowers = await twitchAPI.getAllLiveFollowers(
-          allFollowerIds
-        );
+        if (!user_id) throw "Follower IDs not found";
 
-        res.status(200).json({
-          success: true,
-          data: allLiveFollowers,
-        });
+        const data = await twitchAPI.getStreamDataById(user_id);
+
+        res.status(200).json(data);
       } catch (err) {
         console.log(err);
         res.status(500).json({

@@ -55,106 +55,87 @@ module.exports = class TwitchAPI {
     });
   };
 
+  getUserDataById = (id) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        await this.#checkTokenExpiration();
+
+        let idParams = "";
+
+        if (Array.isArray(id)) {
+          idParams = id.map((i) => `id=${i}`).join("&");
+        } else {
+          idParams = `id=${id}`;
+        }
+
+        const { data } = await this.twitchAPI({
+          method: "GET",
+          url: `/users?${idParams}`,
+        });
+
+        if (!data) reject("Users not found");
+
+        resolve(data);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  };
+
   getUserDataByLogin = (login) => {
     return new Promise(async (resolve, reject) => {
       try {
         await this.#checkTokenExpiration();
-        const {
-          data: {
-            data: [user],
-          },
-        } = await this.twitchAPI({
+        const { data } = await this.twitchAPI({
           method: "GET",
           url: `/users?login=${login}`,
         });
 
-        if (!user) reject("User not found");
+        if (!data) reject("User not found");
 
-        console.log(`Retrieved data for ${login}`);
+        console.log(`Retrieved data for ${data.data[0].login}`);
 
-        resolve(user);
+        resolve(data);
       } catch (err) {
         reject(err);
       }
     });
   };
 
-  getUserFollowerIdsById = (id) => {
+  getUserFollowerIdsById = (to_id, first, after) => {
     return new Promise(async (resolve, reject) => {
       try {
         await this.#checkTokenExpiration();
-        let after = "";
-        let followerIds = [];
 
-        do {
-          const {
-            data: {
-              data,
-              pagination: { cursor },
-              total,
-            },
-          } = await this.twitchAPI(
-            `/users/follows?to_id=${id}&first=100&after=${after}`
-          );
+        const { data } = await this.twitchAPI(
+          `/users/follows?to_id=${to_id}&first=${first}&after=${after}`
+        );
 
-          followerIds = [
-            ...followerIds,
-            ...data.map((follower) => follower.from_id),
-          ];
+        if (!data) reject("Followers not found");
 
-          console.log(`Loading ${followerIds.length} / ${total} followers...`);
-
-          after = cursor;
-        } while (after !== undefined);
-
-        resolve(followerIds);
+        resolve(data);
       } catch (err) {
         reject(err);
       }
     });
   };
 
-  getAllLiveFollowers = (allFollowerIds) => {
+  getStreamDataById = (user_id) => {
     return new Promise(async (resolve, reject) => {
       try {
         await this.#checkTokenExpiration();
-        let liveFollowers = [];
-        let tempIds = [...allFollowerIds];
 
-        do {
-          let ids = tempIds
-            .splice(0, 100)
-            .map((id) => `user_id=${id}`)
-            .join("&");
+        let userIdParams = "";
 
-          const {
-            data: { data: streams },
-          } = await this.twitchAPI(`/streams?${ids}?`);
+        if (Array.isArray(user_id)) {
+          userIdParams = user_id.map((i) => `user_id=${i}`).join("&");
+        } else {
+          userIdParams = `user_id=${user_id}`;
+        }
 
-          if (streams.length) {
-            const liveIds = streams.map((d) => `id=${d.user_id}`).join("&");
+        const { data } = await this.twitchAPI(`/streams?${userIdParams}`);
 
-            const {
-              data: { data: users },
-            } = await this.twitchAPI(`/users?${liveIds}`);
-
-            const combinedData = streams.map((stream) => ({
-              ...stream,
-              ...users.find((user) => user.id === stream.user_id),
-            }));
-
-            liveFollowers = [...liveFollowers, ...combinedData];
-          }
-
-          console.log(
-            `Getting currently live followers: ${
-              allFollowerIds.length - tempIds.length
-            } / ${allFollowerIds.length}`
-          );
-        } while (tempIds.length > 0);
-
-        liveFollowers.sort((a, b) => b.viewer_count - a.viewer_count);
-        resolve(liveFollowers);
+        resolve(data);
       } catch (err) {
         reject(err);
       }

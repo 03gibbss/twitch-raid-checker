@@ -9,7 +9,11 @@ const twitchAPI = new TwitchAPI();
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN,
+  })
+);
 
 const PORT = process.env.PORT || 3001;
 
